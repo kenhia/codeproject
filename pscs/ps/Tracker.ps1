@@ -1,28 +1,44 @@
+#Requires -Version 5
+
+enum TaskState {
+  Proposed
+  Backlog
+  Active
+  Sideburner
+  Closed
+  Rejected
+}
+
+enum TaskSize {
+  Small
+  Medium
+  Large
+  XLarge
+  Unknown
+}
+
 class Task {
   [string] $Title
-  [ValidateSet("small", "medium", "large", "x-large", "unknown")]
-  [string] $Size
+  [TaskSize] $Size
   [guid] $Id
-  [ValidateSet("proposed", "backlog", "active", "sideburner", "closed", "rejected")]
-  [string] $State
+  [TaskState] $State
   [string[]] $Description
   [string[]] $Notes
 
 
    # Constructor
    Task ([string] $t) {
-     if ($t.StartsWith('{')) {
-       $tmp = $t | ConvertFrom-Json
-       $this.Title = $tmp.Title
-       $this.Size = $tmp.Size
-       $this.Id = $tmp.Id
-       $this.State = $tmp.State
-       $this.Description = $tmp.Description
-       $this.Notes = $tmp.Notes
-     } else {
-       $this.Title = $t
-       $this.Id = [guid]::NewGuid()
-     }    
+     $this.Title = $t
+     $this.Id = [guid]::NewGuid()
+   }
+
+   Task([PSCustomObject]$tJson) {
+     $this.Title = $tJson.Title
+     $this.Size = $tJson.Size
+     $this.Id = $tJson.Id
+     $this.State = $tJson.State
+     $this.Description = $tJson.Description
+     $this.Notes = $tJson.Notes
    }
 
    [int] AddNote([string]$note) {
@@ -54,7 +70,31 @@ class Task {
    }
 }
 
+function Import-SingleTask {
+  Param(
+  [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+  $Path
+  )
+
+  if (-not (Test-Path -Path $Path -PathType Leaf)) {
+    Write-Warning "Path not found, $Path"
+    return
+  }
+  $tmp = ConvertFrom-Json -InputObject (Get-Content -Path $Path -Raw)
+  New-Object -TypeName Task -ArgumentList $tmp
+}
+
+function Export-SingleTask {
+  Param(
+  [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+  [Task]$InputObject,
+  [Parameter(Mandatory=$true)]
+  $Path
+  )
+  $InputObject | ConvertTo-Json | Set-Content -Path $Path
+}
+
 $t1 = New-Object -TypeName Task -ArgumentList "Write a CodeProject Article on PS and C#"
 $t1.AddNote('Just playing around')
-Start-Sleep 2
+#Start-Sleep 2
 $t1.AddNote('a second note')
